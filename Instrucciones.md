@@ -1,6 +1,6 @@
-INSTRUCCIONES:
+# INSTRUCCIONES:
 
-LINUX: ------------
+## LINUX: ------------
 Configuracion primer uso linux:
 1. Entrar a la carpeta "influx+grafana linux" (Preferiblemente por terminal, para asegurarse que hace lo correcto)
 2. Ejecutar "EJECUTAR_PRIMERO.sh"
@@ -12,7 +12,7 @@ Usar en linux:
 3. Para cerrar los servicios, ejecutar "Cerrar.sh" (Si solo cierra la ventana, los servicios quedan funcionando de fondo)
 
 
-WINDOWS: ----------------
+## WINDOWS: ----------------
 Configuracion primer uso windows:
 1. Entrar a la carpeta "influx+grafana windows"
 2. Ejecutar "EJECUTAR_PRIMERO.bat"
@@ -24,7 +24,7 @@ Usar en linux:
 3. Para cerrar los servicios, ejecutar "Cerrar.bat" (Si solo cierra la ventana, los servicios quedan funcionando de fondo)
 
 
-
+### Credenciales
 Datos para el uso de grafana e influx:---------------------------------------------------------
 
 Nombres definidos:
@@ -40,3 +40,11 @@ Influxdb está configurado para usar puerto 8086, por defecto. Grafana busca a i
 Se puede acceder a grafana desde el navegador, ingresando a localhost:3000
 
 Para mayores instrucciones sobre configuracion y administracion, ver la documentacion oficial de grafana y de influxdb
+
+### Algunas ayudas
+
+Dar permisos a los scripts para ejecutar
+```
+cd influx+grafana linux
+chmod +x ./influxdb-1.7.9-1\ linux/* grafana-6.4.4\ linux/bin/*
+```
