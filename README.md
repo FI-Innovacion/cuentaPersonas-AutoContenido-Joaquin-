@@ -2,8 +2,8 @@
 
 ## Ejemplos
 ### InfluxDB
-```
-InfluxData measurement ("Personas");
+```InfluxData 
+measurement ("Personas");
   measurement.addTag("device", DISPOSITIVO); // por defecto "d1"
   measurement.addTag("sensor", SENSOR_OBSTRUCCION); // por defecto "reflectivo"
   measurement.addTag("accion", "entrar"); // entrar o salir
