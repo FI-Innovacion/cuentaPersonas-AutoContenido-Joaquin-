@@ -48,3 +48,6 @@ Dar permisos a los scripts para ejecutar
 cd influx+grafana linux
 chmod +x Iniciar.sh Cerrar.sh EJECUTAR_PRIMERO.sh ./influxdb-1.7.9-1\ linux/* grafana-6.4.4\ linux/bin/*
 ```
+
+Nota: 
+Usa la libreria ESP8266 Influxdb de Tobias Schürg, version 1.3.0, una libreria wifimanager modificada (incluida en este repo), y la version 2.4.1 de la libreria de tarjeta esp8266 por ESP8266 community

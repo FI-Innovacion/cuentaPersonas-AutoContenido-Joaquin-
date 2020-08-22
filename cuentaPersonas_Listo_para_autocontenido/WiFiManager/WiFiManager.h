@@ -16,10 +16,10 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
+#include "InfluxEEPROM.h"
 #include <memory>
 
 extern "C" {
-  #include "InfluxEEPROM.h"
   #include "user_interface.h"
 }
 

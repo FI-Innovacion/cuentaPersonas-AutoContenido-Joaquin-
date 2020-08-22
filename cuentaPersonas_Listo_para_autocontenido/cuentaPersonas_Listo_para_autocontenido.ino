@@ -31,6 +31,7 @@ bool interior = 0;
 int loopCount = 0;
 int dtimeExt = 0;
 int dtimeInt = 0;
+boolean conexion_valida = true;
 
 int Trigger_der = 12;
 int Echo_der = D3;
@@ -239,13 +240,34 @@ void setup() {
   
   attachInterrupt(digitalPinToInterrupt(Echo_der), echo_2_int_fall, FALLING); //Se vincula la funcion a la subida de señal del pin de interrupcion.
 
-  Serial.print("Fin de configuracion. Distancia de disparo: "); Serial.print(izquierdo_dist_disparo); Serial.print(" y "); Serial.println(derecho_dist_disparo);
+  Serial.print("Fin de calibracion. Distancia de disparo: "); Serial.print(izquierdo_dist_disparo); Serial.print(" y "); Serial.println(derecho_dist_disparo);
   Serial.println(); 
   Serial.println("Configurando conexion a base de datos...");
   
+  conexion_valida = influx_send_startup_info();
+  if (!conexion_valida){//Si no funciono la conexion, limpiar datos de conexion y reconfigurar en el siguiente reinicio.
+    Serial.println("Error de configuracion, limpiado configuracion y reiniciando..");
 
+    wifiManager.resetSettings();
+    Serial.println("Configuracion borrada, reiniciando...");
+    ESP.restart();
+  }else{
+     Serial.println("Configuracion y conexion correctas, el sensor comenzará a enviar datos a la base de datos.");
+    }
 
 }
+
+boolean influx_send_startup_info(){ //Se conto una persona.
+  InfluxData measurement ("Personas");
+  measurement.addTag("device", device_name);
+  measurement.addTag("sensor", "INFO");
+  measurement.addTag("accion", "start_up");
+  measurement.addValue("value", 1);
+
+  // write it into db
+  return influx->write(measurement);
+  
+  }
 
 void influx_send_entra_persona(){ //Se conto una persona.
   InfluxData measurement ("Personas");
