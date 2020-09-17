@@ -12,8 +12,6 @@
 #define APPASS "ESP2866"
 
 
- #define DISPOSITIVO "d1" //Nombre del dispositivo
- #define SENSOR_OBSTRUCCION "reflectivo"
 
 char influx_host [128];
 const unsigned short influx_port = 8086;
@@ -21,6 +19,8 @@ const unsigned short influx_port = 8086;
 char influx_db [32];
 char influx_user [32];
 char influx_pass [32];
+char device_name [32];
+char sensor_name [32];
 
 const byte pinExt = D5;
 const byte pinInt = D7;
@@ -31,9 +31,10 @@ bool interior = 0;
 int loopCount = 0;
 int dtimeExt = 0;
 int dtimeInt = 0;
+boolean conexion_valida = true;
 
-int Trigger_der = 0;
-int Echo_der = 2;
+int Trigger_der = 12;
+int Echo_der = D3;
 int Trigger_izq = 5;
 int Echo_izq = 4;
 int detectado = 1;
@@ -63,11 +64,11 @@ void SaveDataCallback () {
   newData = true;
 }
 
-void pinIntExt() {
+ICACHE_RAM_ATTR void pinIntExt() {
   intExt = true;
 }
 
-void pinIntInt() {
+ICACHE_RAM_ATTR void pinIntInt() {
   intInt = true;
 }
 
@@ -131,10 +132,14 @@ void setup() {
   WiFiManagerParameter param_db("influx_db", "influx database", "", 32);
   WiFiManagerParameter param_user("influx_user", "influx user", "", 32);
   WiFiManagerParameter param_pass("influx_pass", "influx pass", "", 32);
+  WiFiManagerParameter param_device_name("sender_device_name", "sender device name", "", 32);
+  WiFiManagerParameter param_sensor_name("sender_sensor_name", "sender sensor name", "", 32);
   wifiManager.addParameter(&param_host);
   wifiManager.addParameter(&param_db);
   wifiManager.addParameter(&param_user);
   wifiManager.addParameter(&param_pass);
+  wifiManager.addParameter(&param_device_name);
+  wifiManager.addParameter(&param_sensor_name);
 
   wifiManager.setSaveConfigCallback(SaveDataCallback);
   
@@ -149,11 +154,15 @@ void setup() {
     strcpy (influx_db, param_db.getValue());
     strcpy (influx_user, param_user.getValue());
     strcpy (influx_pass, param_pass.getValue());
+    strcpy (device_name, param_device_name.getValue());
+    strcpy (sensor_name, param_sensor_name.getValue());
     
     savestr (128, influx_host, 128);
     savestr (256, influx_db, 32);
     savestr (288, influx_user, 32);
     savestr (320, influx_pass, 32);
+    savestr (352, device_name, 32);
+    savestr (384, sensor_name, 32);
       
   } else {
     
@@ -189,17 +198,8 @@ void setup() {
   
 
   for (int i=0;i<=50;i++) {
-    digitalWrite (Trigger_izq, LOW);
-    delayMicroseconds(2);
-    digitalWrite (Trigger_izq, HIGH);
-    delayMicroseconds (10);
-    digitalWrite (Trigger_izq, LOW);
-    derecho_duracion = pulseIn (Echo_der, HIGH);
-    derecho_distancia = (derecho_duracion/2) / 29.1;
+    Serial.print("Actual:");
 
-    if (derecho_distancia > derecho_max || derecho_distancia < 3000) {
-      derecho_max=derecho_distancia;
-      }
     digitalWrite (Trigger_izq, LOW);
     delayMicroseconds(2);
     digitalWrite (Trigger_izq, HIGH);
@@ -211,7 +211,23 @@ void setup() {
     if (izquierdo_distancia > izquierdo_max || izquierdo_distancia < 3000) {
       izquierdo_max=izquierdo_distancia;
       }
-    Serial.print("Actual:");Serial.print(izquierdo_distancia);Serial.print(",");Serial.print(derecho_distancia);Serial.println(".");
+    Serial.print(izquierdo_distancia);Serial.print(",");
+    
+    digitalWrite (Trigger_izq, LOW);
+    delayMicroseconds(2);
+    digitalWrite (Trigger_izq, HIGH);
+    delayMicroseconds (10);
+    digitalWrite (Trigger_izq, LOW);
+    derecho_duracion = pulseIn (Echo_der, HIGH);
+    derecho_distancia = (derecho_duracion/2) / 29.1;
+    
+    if (derecho_distancia > derecho_max || derecho_distancia < 3000) {
+      derecho_max=derecho_distancia;
+      }
+
+    Serial.print(derecho_distancia);Serial.println(".");
+    
+    
     
     delay(100);
     }
@@ -224,18 +240,39 @@ void setup() {
   
   attachInterrupt(digitalPinToInterrupt(Echo_der), echo_2_int_fall, FALLING); //Se vincula la funcion a la subida de señal del pin de interrupcion.
 
-  Serial.print("Fin de configuracion. Distancia de disparo: "); Serial.print(izquierdo_dist_disparo); Serial.print(" y "); Serial.println(derecho_dist_disparo);
+  Serial.print("Fin de calibracion. Distancia de disparo: "); Serial.print(izquierdo_dist_disparo); Serial.print(" y "); Serial.println(derecho_dist_disparo);
   Serial.println(); 
   Serial.println("Configurando conexion a base de datos...");
   
+  conexion_valida = influx_send_startup_info();
+  if (!conexion_valida){//Si no funciono la conexion, limpiar datos de conexion y reconfigurar en el siguiente reinicio.
+    Serial.println("Error de configuracion, limpiado configuracion y reiniciando..");
 
+    wifiManager.resetSettings();
+    Serial.println("Configuracion borrada, reiniciando...");
+    ESP.restart();
+  }else{
+     Serial.println("Configuracion y conexion correctas, el sensor comenzará a enviar datos a la base de datos.");
+    }
 
 }
 
+boolean influx_send_startup_info(){ //Se conto una persona.
+  InfluxData measurement ("Personas");
+  measurement.addTag("device", device_name);
+  measurement.addTag("sensor", "INFO");
+  measurement.addTag("accion", "start_up");
+  measurement.addValue("value", 1);
+
+  // write it into db
+  return influx->write(measurement);
+  
+  }
+
 void influx_send_entra_persona(){ //Se conto una persona.
   InfluxData measurement ("Personas");
-  measurement.addTag("device", DISPOSITIVO);
-  measurement.addTag("sensor", SENSOR_OBSTRUCCION);
+  measurement.addTag("device", device_name);
+  measurement.addTag("sensor", sensor_name);
   measurement.addTag("accion", "entrar");
   measurement.addValue("value", 1);
 
@@ -247,8 +284,8 @@ void influx_send_entra_persona(){ //Se conto una persona.
   
 void influx_send_sale_persona(){ //Se conto una persona.
   InfluxData measurement ("Personas");
-  measurement.addTag("device", DISPOSITIVO);
-  measurement.addTag("sensor", SENSOR_OBSTRUCCION);
+  measurement.addTag("device", device_name);
+  measurement.addTag("sensor", sensor_name);
   measurement.addTag("accion", "salir");
   measurement.addValue("value", -1);
 
@@ -257,13 +294,13 @@ void influx_send_sale_persona(){ //Se conto una persona.
   
   }
   
-void echo_int_fall(){
+ICACHE_RAM_ATTR void echo_int_fall(){
   izquierdo_duracion=micros() - tiempo;
   //izqInt=0;
   }
 
   
-void echo_2_int_fall(){
+ICACHE_RAM_ATTR void echo_2_int_fall(){
   derecho_duracion=micros() - tiempo;
   //derInt=0;
   }
