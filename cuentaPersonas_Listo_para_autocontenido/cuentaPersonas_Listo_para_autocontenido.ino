@@ -1,9 +1,10 @@
 #include <ESP8266WiFi.h>
-#include <InfluxDb.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <EEPROM.h>
+#include <ESP8266HTTPClient.h> 
+#include<string.h>
 
 #define INTDELAY 30
 #define RDELAY 100
@@ -11,10 +12,10 @@
 #define APNAME "Configurar_Sensores"
 #define APPASS "ESP2866"
 
-
-
+//const char* fingerpr = "ED BB DB 12 54 FD E1 A4 10 79 BC CF FE 06 42 63 80 2E 17 CE"; //Codigo SSL actualizado para acceder por https si hace falta.
+const char* fingerpr = "ED:BB:DB:12:54:FD:E1:A4:10:79:BC:CF:FE:06:42:63:80:2E:17:CE";
+int httpCode = 0;
 char influx_host [128];
-const unsigned short influx_port = 8086;
 
 char influx_db [32];
 char influx_user [32];
@@ -31,7 +32,6 @@ bool interior = 0;
 int loopCount = 0;
 int dtimeExt = 0;
 int dtimeInt = 0;
-boolean conexion_valida = true;
 
 int Trigger_der = 12;
 int Echo_der = D3;
@@ -58,7 +58,6 @@ String pulsadores = "";
 
 bool newData = false;
 
-Influxdb* influx;
 
 void SaveDataCallback () {
   newData = true;
@@ -72,6 +71,12 @@ ICACHE_RAM_ATTR void pinIntInt() {
   intInt = true;
 }
 
+bool prefix(const char *pre, const char *str)
+{
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
+
+
 void ResetState () {
   Serial.print("Reset");
   intExt = false;
@@ -81,19 +86,7 @@ void ResetState () {
   loopCount = 0;
 }
 
-void SendInflux (int c) {
-  Serial.print("Mandando... ");
-  InfluxData row("ingreso");
-  row.addValue("valor", c);
-  influx->write(row);
-  Serial.print("Enviado: ");
-  Serial.println(c);
-}
 
-inline void SendReset (int c) {
-  SendInflux(c);
-  ResetState();
-}
 
 bool IntStateInt () {
   if (intInt) {
@@ -158,11 +151,11 @@ void setup() {
     strcpy (sensor_name, param_sensor_name.getValue());
     
     savestr (128, influx_host, 128);
-    savestr (256, influx_db, 32);
-    savestr (288, influx_user, 32);
-    savestr (320, influx_pass, 32);
-    savestr (352, device_name, 32);
-    savestr (384, sensor_name, 32);
+    savestr (160, influx_db, 32);
+    savestr (192, influx_user, 32);
+    savestr (224, influx_pass, 32);
+    savestr (256, device_name, 32);
+    savestr (288, sensor_name, 32);
       
   } else {
     
@@ -172,22 +165,30 @@ void setup() {
     strcpy (influx_host, temp);
     free(temp);
 
-    temp = loadstr(256, 32);
+
+    temp = loadstr(160, 32);
     strcpy (influx_db, temp);
     free(temp);
 
-    temp = loadstr(288, 32);
+    temp = loadstr(192, 32);
     strcpy (influx_user, temp);
     free(temp);
 
-    temp = loadstr(320, 32);
+    temp = loadstr(224, 32);
     strcpy (influx_pass, temp);
+    free(temp);
+
+    temp = loadstr(256, 32);
+    strcpy (device_name, temp);
+    free(temp);
+
+    temp = loadstr(288, 32);
+    strcpy (sensor_name, temp);
     free(temp);
     
   }
 
-  influx = new Influxdb (influx_host, influx_port);
-  influx->setDbAuth(influx_db, influx_user, influx_pass);
+ 
 
   pinMode(pinExt, INPUT_PULLUP);
   pinMode(pinInt, INPUT_PULLUP);
@@ -240,59 +241,119 @@ void setup() {
   
   attachInterrupt(digitalPinToInterrupt(Echo_der), echo_2_int_fall, FALLING); //Se vincula la funcion a la subida de señal del pin de interrupcion.
 
+  
   Serial.print("Fin de calibracion. Distancia de disparo: "); Serial.print(izquierdo_dist_disparo); Serial.print(" y "); Serial.println(derecho_dist_disparo);
   Serial.println(); 
   Serial.println("Configurando conexion a base de datos...");
-  
-  conexion_valida = influx_send_startup_info();
-  if (!conexion_valida){//Si no funciono la conexion, limpiar datos de conexion y reconfigurar en el siguiente reinicio.
-    Serial.println("Error de configuracion, limpiado configuracion y reiniciando..");
+  Serial.print("Datos ingresados: ");
+  Serial.print("Host: ");Serial.println(influx_host);
+  Serial.print("DB: ");Serial.println(influx_db);
+  Serial.print("User: ");Serial.println(influx_user);
+  Serial.print("Password: ");Serial.println(influx_pass);
 
-    wifiManager.resetSettings();
-    Serial.println("Configuracion borrada, reiniciando...");
-    ESP.restart();
+  if (!influx_send_startup_info()){//Si no recibo un codigo success del server, limpiar datos de conexion y reconfigurar en el siguiente reinicio.
+    Serial.println("Error de configuracion, limpiado configuracion y reiniciando..");
+    Serial.print("Server returned code: ");Serial.println(httpCode);
+    WiFi.disconnect(true);
+    delay(2000);
+    Serial.println("Configuracion actualizada, reiniciando...");
+    ESP.reset();
   }else{
      Serial.println("Configuracion y conexion correctas, el sensor comenzará a enviar datos a la base de datos.");
     }
 
 }
 
-boolean influx_send_startup_info(){ //Se conto una persona.
-  InfluxData measurement ("Personas");
-  measurement.addTag("device", device_name);
-  measurement.addTag("sensor", "INFO");
-  measurement.addTag("accion", "start_up");
-  measurement.addValue("value", 1);
 
-  // write it into db
-  return influx->write(measurement);
-  
+int influx_send_startup_info(){
+  if(WiFi.status()==WL_CONNECTED){
+    HTTPClient http;
+    char url[160];
+    sprintf(url,"%s/write?db=%s&u=%s&p=%s",influx_host,influx_db,influx_user,influx_pass);
+    char postData[128];
+    sprintf(postData,"Personas,accion=inicio_dispositivo,device=%s,sensor=%s value=0",device_name,sensor_name);
+
+   if (prefix("https://",influx_host)){ //Si es https
+      http.begin(url, fingerpr);
+    }else{
+      http.begin(url);
+     }
+     
+    http.addHeader("Content-Type","application/json");
+   httpCode=http.POST(postData);
+   http.end();
+   Serial.print("Server returned code: ");Serial.println(httpCode);
+  if (httpCode >= 200 && httpCode < 300){
+    return true;
+    }else{
+     return false;
+     }
+  }else{
+    return false;
   }
+}
 
-void influx_send_entra_persona(){ //Se conto una persona.
-  InfluxData measurement ("Personas");
-  measurement.addTag("device", device_name);
-  measurement.addTag("sensor", sensor_name);
-  measurement.addTag("accion", "entrar");
-  measurement.addValue("value", 1);
-
-  // write it into db
-  influx->write(measurement);
   
+
+int influx_send_entra_persona(){
+   if(WiFi.status()==WL_CONNECTED){
+    HTTPClient http;
+    char url[160];
+    sprintf(url,"%s/write?db=%s&u=%s&p=%s",influx_host,influx_db,influx_user,influx_pass);
+    char postData[128];
+    sprintf(postData,"Personas,accion=entrar,device=%s,sensor=%s value=1",device_name,sensor_name);
+
+    if (prefix("https://",influx_host)){ //Si es https
+      http.begin(url, fingerpr);
+    }else{
+      http.begin(url);
+     }
+    
+    
+    http.addHeader("Content-Type","application/json");
+   httpCode=http.POST(postData);
+   http.end();
+   Serial.print("Server returned code: ");Serial.println(httpCode);
+  if (httpCode >= 200 && httpCode < 300){
+    return true;
+    }else{
+     return false;
+     }
+  }else{
+    return false;
   }
+}
 
-  
-void influx_send_sale_persona(){ //Se conto una persona.
-  InfluxData measurement ("Personas");
-  measurement.addTag("device", device_name);
-  measurement.addTag("sensor", sensor_name);
-  measurement.addTag("accion", "salir");
-  measurement.addValue("value", -1);
 
-  // write it into db
-  influx->write(measurement);
-  
+
+int influx_send_sale_persona(){
+  if(WiFi.status()==WL_CONNECTED){
+    HTTPClient http;
+    char url[1608];
+    sprintf(url,"%s/write?db=%s&u=%s&p=%s",influx_host,influx_db,influx_user,influx_pass);
+    char postData[128];
+    sprintf(postData,"Personas,accion=salir,device=%s,sensor=%s value=-1",device_name,sensor_name);
+
+    if (prefix("https://",influx_host)){ //Si es https
+      http.begin(url, fingerpr);
+    }else{
+      http.begin(url);
+     }
+     
+    http.addHeader("Content-Type","application/json");
+    httpCode=http.POST(postData);
+   http.end();
+   Serial.print("Server returned code: ");Serial.println(httpCode);
+  if (httpCode >= 200 && httpCode < 300){
+    return true;
+    }else{
+     return false;
+     }
+  }else{
+    return false;
   }
+}
+  
   
 ICACHE_RAM_ATTR void echo_int_fall(){
   izquierdo_duracion=micros() - tiempo;
