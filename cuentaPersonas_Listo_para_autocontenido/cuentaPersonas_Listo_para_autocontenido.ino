@@ -329,7 +329,7 @@ int influx_send_entra_persona(){
 int influx_send_sale_persona(){
   if(WiFi.status()==WL_CONNECTED){
     HTTPClient http;
-    char url[1608];
+    char url[160];
     sprintf(url,"%s/write?db=%s&u=%s&p=%s",influx_host,influx_db,influx_user,influx_pass);
     char postData[128];
     sprintf(postData,"Personas,accion=salir,device=%s,sensor=%s value=-1",device_name,sensor_name);
