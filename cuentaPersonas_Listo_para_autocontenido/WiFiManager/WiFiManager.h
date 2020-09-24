@@ -16,8 +16,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
-#include "InfluxEEPROM.h"
 #include <memory>
+#include "InfluxEEPROM.h"
 
 extern "C" {
   #include "user_interface.h"

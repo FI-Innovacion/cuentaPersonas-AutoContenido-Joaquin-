@@ -1,49 +1,35 @@
-
-
 #include "InfluxEEPROM.h"
 
-char* loadstr (size_t addr, size_t size){
-
-    char* ret = (char*) malloc (size);
-
-    for (size_t i = 0; i < size; ++i){
-        ret[i] = EEPROM.read(addr + i);
-        if (ret[i] == 0) break;
+void loadstr (size_t addr, char* str, size_t size){
+    size_t lim = addr + size - 1;
+    for (; addr < lim; ++addr, ++str) {
+        *str = EEPROM.read(addr);
+        if (*str == 0) break;
 	}
-
-    ret[size-1] = 0;
-    return ret;
-
+    *str = 0;
 }
 
 void savestr (size_t addr, const char* str, size_t size){
-
-    for (size_t i = 0; i <= size; ++i)
-        EEPROM.write(addr + i, str[i]);
+    size_t lim = addr + size - 1;
+    for (; addr < lim; ++addr, ++str) {
+        EEPROM.write(addr, *str);
+        if (*str == 0) break;
+    }
     EEPROM.commit();
-
 }
 
-char* loadSSID(){
-
-    return loadstr (SSIDADDR, SSIDSIZE);
-
+void loadSSID (char* ssid) {
+    loadstr (SSIDADDR, ssid, SSIDSIZE);
 }
 
-char* loadPASS(){
-
-    return loadstr (PASSADDR, PASSSIZE);
-
+void loadPASS (char* pass) {
+    loadstr (PASSADDR, pass, PASSSIZE);
 }
 
-void saveSSID(const char* ssid){
-
-    savestr (SSIDADDR, ssid, strlen(ssid));
-
+void saveSSID (const char* ssid) {
+    savestr (SSIDADDR, ssid, SSIDSIZE);
 }
 
-void savePASS(const char* pass){
-
-    savestr (SSIDADDR, pass, strlen(pass));
-
+void savePASS (const char* pass) {
+    savestr (PASSADDR, pass, PASSSIZE);
 }

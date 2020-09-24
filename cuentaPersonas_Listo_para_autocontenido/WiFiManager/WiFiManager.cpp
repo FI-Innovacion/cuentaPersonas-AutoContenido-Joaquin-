@@ -166,8 +166,11 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
   DEBUG_WM(F("AutoConnect"));
 
   // read eeprom for ssid and pass
-  char* ssid = loadSSID();
-  char* pass = loadPASS();
+  char ssid [SSIDSIZE];
+  char pass [PASSSIZE];
+  
+  loadSSID(ssid);
+  loadPASS(pass);
   
   // attempt to connect; should it fail, fall back to AP
   WiFi.mode(WIFI_STA);
@@ -175,13 +178,8 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
   if (*ssid != 0 && connectWifi(ssid, pass) == WL_CONNECTED){
     DEBUG_WM(F("IP Address:"));
     DEBUG_WM(WiFi.localIP());
-    free(ssid);
-    free(pass);
     return true;
   }
-  
-  free(ssid);
-  free(pass);
 
   return startConfigPortal(apName, apPassword);
 }

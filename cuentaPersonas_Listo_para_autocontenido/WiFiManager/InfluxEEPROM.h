@@ -1,23 +1,20 @@
-
-
 #ifndef InfluxEEPROM_h
 #define InfluxEEPROM_h
 
-#include <stdlib.h>
-#include <EEPROM.h>
-#include <string.h>
-
+#define SSIDADDR 0
 #define SSIDSIZE 64
+
+#define PASSADDR 64
 #define PASSSIZE 64
 
-#define SSIDADDR 0
-#define PASSADDR 64
+#include <stdlib.h>
+#include <EEPROM.h>
 
-char* loadstr (size_t addr, size_t size);
+void loadstr (size_t addr, char* str, size_t size);
 void savestr (size_t addr, const char* str, size_t size);
 
-char* loadSSID();
-char* loadPASS();
+void loadSSID(char* ssid);
+void loadPASS(char* pass);
 void saveSSID(const char* ssid);
 void savePASS(const char* pass);
 
