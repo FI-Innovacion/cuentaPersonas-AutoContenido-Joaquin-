@@ -124,26 +124,49 @@ void setup() {
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
 
-  if (newData) {
-    strcpy(influx_host, param_host.getValue());
-    strcpy(influx_db, param_db.getValue());
-    strcpy(influx_user, param_user.getValue());
-    strcpy(influx_pass, param_pass.getValue());
-    strcpy(device_name, param_device_name.getValue());
-    strcpy(sensor_name, param_sensor_name.getValue());
-    savestr(128, influx_host, 128);
-    savestr(160, influx_db, 32);
-    savestr(192, influx_user, 32);
-    savestr(224, influx_pass, 32);
-    savestr(256, device_name, 32);
-    savestr(288, sensor_name, 32);
+   if (newData){
+    
+    strcpy (influx_host, param_host.getValue());
+    strcpy (influx_db, param_db.getValue());
+    strcpy (influx_user, param_user.getValue());
+    strcpy (influx_pass, param_pass.getValue());
+    strcpy (device_name, param_device_name.getValue());
+    strcpy (sensor_name, param_sensor_name.getValue());
+    
+    savestr (128, influx_host, 128);
+    savestr (160, influx_db, 32);
+    savestr (192, influx_user, 32);
+    savestr (224, influx_pass, 32);
+    savestr (256, device_name, 32);
+    savestr (288, sensor_name, 32);
+      
   } else {
-    loadstr(128, influx_host, 128);
-    loadstr(160, influx_db, 32);
-    loadstr(192, influx_user, 32);
-    loadstr(224, influx_pass, 32);
-    loadstr(256, device_name, 32);
-    loadstr(288, sensor_name, 32);
+  
+    char* temp;
+    temp = loadstr(128, 128);
+    strcpy (influx_host, temp);
+    free(temp);
+
+    temp = loadstr(160, 32);
+    strcpy (influx_db, temp);
+    free(temp);
+    
+    temp = loadstr(192, 32);
+    strcpy (influx_user, temp);
+    free(temp);
+
+    temp = loadstr(224, 32);
+    strcpy (influx_pass, temp);
+    free(temp);
+
+    temp = loadstr(256, 32);
+    strcpy (device_name, temp);
+    free(temp);
+
+    temp = loadstr(288, 32);
+    strcpy (sensor_name, temp);
+    free(temp);
+    
   }
 
   sprintf(request_url, "%s/write?db=%s&u=%s&p=%s", influx_host, influx_db, influx_user, influx_pass);
